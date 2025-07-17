@@ -1,0 +1,6 @@
+requests
+schedule
+flask
+discord.py
+pandas  # For data analysis if needed
+python-dotenv  # For loading environment variables from .env file
