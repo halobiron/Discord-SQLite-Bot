@@ -233,7 +233,7 @@ async def bccl(interaction: Interaction):
     try:
         def _run():
             report = monitor.generate_hourly_report()
-            monitor.send_discord_message(None, report)
+            monitor.send_discord_message(None, report, is_fr=True)
         await asyncio.get_event_loop().run_in_executor(None, _run)
         await interaction.followup.send("✅ Hoàn thành tạo báo cáo hàng giờ!")
     except Exception as e:

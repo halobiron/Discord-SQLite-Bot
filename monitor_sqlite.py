@@ -32,7 +32,8 @@ status_report_lock = threading.Lock()
 # ------------------ CONFIG & CONSTANTS ------------------
 CONFIG = {
     "DISCORD": {
-        "WEBHOOK_URL": os.getenv("DISCORD_WEBHOOK_URL")
+        "WEBHOOK_URL": os.getenv("DISCORD_WEBHOOK_URL"),
+        "WEBHOOK_URL_FR": os.getenv("DISCORD_WEBHOOK_URL_FR")
     },
     "API": {
         "ACCESS_KEY": os.getenv("API_ACCESS_KEY"),
@@ -113,20 +114,23 @@ def make_api_call(endpoint, body=None):
         logging.error(f"Error in API call to {uri}: {e}")
         return None
 
-def send_discord_message(chat_id, message):
+def send_discord_message(chat_id, message, is_fr=False):
     """Send a Discord message via webhook (ignores chat_id)."""
-    url = CONFIG['DISCORD']['WEBHOOK_URL']
+    # Use FR webhook if it's a fixed rate message and the FR webhook is configured
+    url = CONFIG['DISCORD'].get('WEBHOOK_URL_FR') if is_fr and CONFIG['DISCORD'].get('WEBHOOK_URL_FR') else CONFIG['DISCORD']['WEBHOOK_URL']
+    
     payload = {"content": message}
     try:
         response = requests.post(url, json=payload, timeout=10)
         if response.status_code == 204 or response.status_code == 200:
-            logging.info("Discord message sent successfully")
+            logging.info(f"Discord {'FR ' if is_fr and CONFIG['DISCORD'].get('WEBHOOK_URL_FR') else ''}message sent successfully")
         else:
             logging.error(f"Error sending Discord message: {response.text}")
     except Exception as e:
         logging.error(f"Exception when sending Discord message: {str(e)}")
 
-send_telegram_message = send_discord_message
+def send_telegram_message(chat_id, message, is_fr=False):
+    send_discord_message(chat_id, message, is_fr=is_fr)
 
 # ------------------ API DATA FUNCTIONS ------------------
 def get_online_users(max_retries=3):
@@ -528,7 +532,7 @@ def report_station_fixed_rate(chat_id, station_name, duration_minutes: int = 10)
 
         if not station_records:
             message = f"Không tìm thấy dữ liệu nào cho trạm '{station_name}' trong {duration_minutes} phút qua."
-            send_telegram_message(chat_id, message)
+            send_telegram_message(chat_id, message, is_fr=True)
             return
 
         # Calculate averages
@@ -556,11 +560,11 @@ def report_station_fixed_rate(chat_id, station_name, duration_minutes: int = 10)
             f"- Fixed Users (TB): `{avg_fixed_users:.1f}`\n"
         )
 
-        send_telegram_message(chat_id, message)
+        send_telegram_message(chat_id, message, is_fr=True)
         
     except Exception as e:
         logging.error(f"Error in report_station_fixed_rate: {e}")
-        send_telegram_message(chat_id, f"Lỗi khi tạo báo cáo cho trạm '{station_name}'.")
+        send_telegram_message(chat_id, f"Lỗi khi tạo báo cáo cho trạm '{station_name}'.", is_fr=True)
 
 def report_province_fixed_rate(chat_id, province_prefix: str, duration_minutes: int = 10):
     """Report average fixed rate for a province using SQLite data."""
@@ -575,7 +579,7 @@ def report_province_fixed_rate(chat_id, province_prefix: str, duration_minutes: 
 
         if not province_records:
             message = f"Không tìm thấy trạm nào bắt đầu bằng '{province_prefix}' trong {duration_minutes} phút qua."
-            send_telegram_message(chat_id, message)
+            send_telegram_message(chat_id, message, is_fr=True)
             return
 
         # Calculate averages
@@ -606,11 +610,11 @@ def report_province_fixed_rate(chat_id, province_prefix: str, duration_minutes: 
             f"- Số trạm có dữ liệu: `{len(station_count)}`\n"
         )
 
-        send_telegram_message(chat_id, message)
+        send_telegram_message(chat_id, message, is_fr=True)
         
     except Exception as e:
         logging.error(f"Error in report_province_fixed_rate: {e}")
-        send_telegram_message(chat_id, f"Lỗi khi tạo báo cáo cho tỉnh '{province_prefix}'.")
+        send_telegram_message(chat_id, f"Lỗi khi tạo báo cáo cho tỉnh '{province_prefix}'.", is_fr=True)
 
 def report_fixed_rate():
     """Create fixed rate report from SQLite data."""
@@ -619,7 +623,7 @@ def report_fixed_rate():
         
         if not records:
             message = "Không có dữ liệu để tạo báo cáo fixed rate."
-            send_telegram_message(None, message)
+            send_telegram_message(None, message, is_fr=True)
             return False
 
         # Use latest record
@@ -637,7 +641,7 @@ def report_fixed_rate():
 + Số người dùng fixed trung bình: {fixed_users:.1f}
 + Số trạm có người dùng: {stations:.1f}
         """
-        send_telegram_message(None, message)
+        send_telegram_message(None, message, is_fr=True)
         logging.info("Fixed rate report sent successfully.")
         return True
         
@@ -738,7 +742,7 @@ def job_fixed_rate_report():
 def job_daily_bccl_report():
     """Send daily hourly fixed rate report at 21:00."""
     report = generate_hourly_report()
-    send_telegram_message(None, report)
+    send_telegram_message(None, report, is_fr=True)
 
 def job_db_cleanup():
     """Daily database cleanup."""

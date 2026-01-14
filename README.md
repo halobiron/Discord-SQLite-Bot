@@ -30,33 +30,57 @@ Hệ thống giám sát và cảnh báo tự động cho các trạm CORS với 
 pip install -r requirements.txt
 ```
 
-### 2. Thiết lập Environment Variables
-
-**Tạo file `.env` từ template:**
-```bash
-copy .env.example .env
-```
-
-**Chỉnh sửa file `.env` với thông tin thực tế:**
-```env
-# Discord Configuration
-DISCORD_BOT_TOKEN=your_discord_bot_token_here
-DISCORD_WEBHOOK_URL=your_discord_webhook_url_here
-
-# API Configuration  
-API_ACCESS_KEY=your_api_access_key_here
-API_SECRET_KEY=your_api_secret_key_here
-API_SIGN_METHOD=HmacSHA256
-API_BASE_URL=http://rtk.taikhoandodac.vn:8090
-
-# Google Service Account
-GOOGLE_SERVICE_ACCOUNT_FILE=your_service_account_file.json
-```
+### 2. Chỉnh sửa file `.env` với thông tin thực tế
 
 ### 3. Chạy hệ thống
 ```bash
 python discord_bot.py
 ```
+
+### 4. Chạy liên tục trên server (khuyến nghị dùng Systemd)
+Để bot chạy ổn định, tự khởi động lại khi lỗi hoặc khi reboot server, bạn nên dùng `systemd`.
+
+#### Bước 1: Tạo file cấu hình service
+Chạy lệnh sau để tạo file:
+```bash
+sudo nano /etc/systemd/system/discord-bot.service
+```
+
+#### Bước 2: Dán nội dung sau vào (Sửa đường dẫn phù hợp)
+```ini
+[Unit]
+Description=Discord SQLite Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/CORS_Alarm
+ExecStart=/root/CORS_Alarm/venv/bin/python monitor_sqlite.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
+```
+
+#### Bước 3: Kích hoạt và chạy
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable discord-bot
+sudo systemctl start discord-bot
+```
+
+#### Quản lý bot:
+- **Kiểm tra trạng thái**: `sudo systemctl status discord-bot`
+- **Khởi động lại (sau khi sửa code)**: `sudo systemctl restart discord-bot`
+- **Dừng bot**: `sudo systemctl stop discord-bot`
+- **Xem log lỗi trực tiếp**: `journalctl -u discord-bot -f`
+
+---
 
 ## 📖 Hướng dẫn sử dụng
 
@@ -124,35 +148,6 @@ CORS_Alarm/
 └── *-alert-*.json   # Google Service Account
 ```
 
-## 🔒 Bảo mật
-
-- ✅ Tất cả thông tin nhạy cảm được lưu trong file `.env`
-- ✅ File `.env` và credentials đã được thêm vào `.gitignore`
-- ✅ Không hardcode token/key trong source code
-- ✅ Validation biến môi trường khi khởi động
-
-## 📝 Log và Debug
-
-- **bot.log**: Log hoạt động Discord bot
-- **Database stats**: Sử dụng `/cleanup` để xem thống kê database
-- **Error handling**: Tất cả lỗi được log và báo cáo qua Discord
-
-## 🆘 Troubleshooting
-
-### Bot không phản hồi
-1. Kiểm tra `DISCORD_BOT_TOKEN` trong file `.env`
-2. Đảm bảo bot đã được invite vào server với quyền Slash Commands
-3. Kiểm tra log file `bot.log`
-
-### Không nhận được báo cáo tự động
-1. Kiểm tra `DISCORD_WEBHOOK_URL` trong file `.env`
-2. Đảm bảo API credentials (`API_ACCESS_KEY`, `API_SECRET_KEY`) đúng
-3. Kiểm tra kết nối mạng tới API server
-
-### Database lỗi
-1. Xóa file `monitoring.db` để tạo database mới
-2. Chạy lại `python discord_bot.py`
-3. Sử dụng `/cleanup` để dọn dẹp dữ liệu cũ
 
 ---
 
